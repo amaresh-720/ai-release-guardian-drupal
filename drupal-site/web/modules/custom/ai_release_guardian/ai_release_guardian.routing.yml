@@ -1,0 +1,24 @@
+ai_release_guardian.settings:
+  path: '/admin/config/system/ai-release-guardian'
+  defaults:
+    _form: '\Drupal\ai_release_guardian\Form\SettingsForm'
+    _title: 'AI Release Guardian'
+  requirements:
+    _permission: 'administer ai release guardian'
+
+ai_release_guardian.report_list:
+  path: '/admin/reports/release-audit'
+  defaults:
+    _controller: '\Drupal\ai_release_guardian\Controller\AuditReportController::list'
+    _title: 'Release Audits'
+  requirements:
+    _permission: 'view ai release guardian reports'
+
+ai_release_guardian.report_view:
+  path: '/admin/reports/release-audit/{audit_id}'
+  defaults:
+    _controller: '\Drupal\ai_release_guardian\Controller\AuditReportController::view'
+    _title: 'Release Audit Detail'
+  requirements:
+    _permission: 'view ai release guardian reports'
+    audit_id: '\d+'

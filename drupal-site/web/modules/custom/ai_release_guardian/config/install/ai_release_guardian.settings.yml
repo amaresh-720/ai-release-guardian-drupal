@@ -1,0 +1,14 @@
+# Default settings installed when the module is first enabled.
+# Conservative defaults: critical+high block; common dev configs excluded
+# to avoid false alarms on local-only tweaks.
+provider: groq
+model: 'llama-3.1-8b-instant'
+base_url: 'https://api.groq.com/openai/v1'
+request_timeout: 20
+blocking_severities:
+  - critical
+  - high
+excluded_config_patterns:
+  - 'system.performance'
+  - 'system.logging'
+cache_ttl: 3600

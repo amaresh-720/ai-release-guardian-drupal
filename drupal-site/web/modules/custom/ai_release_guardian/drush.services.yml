@@ -1,0 +1,10 @@
+services:
+  ai_release_guardian.commands:
+    class: Drupal\ai_release_guardian\Drush\Commands\ReleaseGuardianCommands
+    arguments:
+      - '@ai_release_guardian.config_diff'
+      - '@ai_release_guardian.audit'
+      - '@ai_release_guardian.log_writer'
+      - '@config.factory'
+    tags:
+      - { name: drush.command }

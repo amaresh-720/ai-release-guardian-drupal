@@ -1,0 +1,50 @@
+{#
+/**
+ * @file
+ * Single-audit detail view.
+ *
+ * Available variables:
+ * - audit: id, timestamp, verdict, verdict_label, grouped, finding_count
+ * - meta:  model, provider, latency_ms, cache_hit, token_usage
+ */
+#}
+<div class="arg-report arg-verdict-{{ audit.verdict }}">
+  <header class="arg-report__header">
+    <h2>Audit #{{ audit.id }}</h2>
+    <p class="arg-report__meta">
+      <span class="arg-verdict-pill arg-verdict-pill--{{ audit.verdict }}">{{ audit.verdict_label }}</span>
+      <span> · {{ audit.timestamp }}</span>
+      <span> · {{ audit.finding_count }} finding{{ audit.finding_count == 1 ? '' : 's' }}</span>
+    </p>
+  </header>
+
+  <dl class="arg-report__kv">
+    <dt>Provider</dt><dd>{{ meta.provider ?? '-' }}</dd>
+    <dt>Model</dt><dd>{{ meta.model ?? '-' }}</dd>
+    <dt>Latency</dt><dd>{{ meta.latency_ms ?? '-' }} ms</dd>
+    <dt>Cache</dt><dd>{{ meta.cache_hit ? 'HIT' : 'MISS' }}</dd>
+    {% if meta.token_usage %}
+      <dt>Tokens</dt><dd>{{ meta.token_usage.total_tokens ?? '-' }}</dd>
+    {% endif %}
+  </dl>
+
+  {% if audit.finding_count == 0 %}
+    <p class="arg-report__empty">No issues found.</p>
+  {% else %}
+    {% for severity, findings in audit.grouped %}
+      <section class="arg-section arg-section--{{ severity }}">
+        <h3>{{ findings|first._severity_emoji }} {{ severity|upper }} <small>({{ findings|length }})</small></h3>
+        {% for f in findings %}
+          <article class="arg-finding">
+            <code class="arg-finding__name">{{ f.config_name }}</code>
+            <h4 class="arg-finding__title">{{ f.title }}</h4>
+            {% if f.detail %}<p class="arg-finding__detail">{{ f.detail }}</p>{% endif %}
+            {% if f.recommendation %}
+              <p class="arg-finding__fix"><strong>Fix:</strong> {{ f.recommendation }}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  {% endif %}
+</div>

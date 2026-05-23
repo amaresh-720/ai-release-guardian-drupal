@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * @file
+ * AI Release Guardian — module hooks (kept minimal; logic lives in services).
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ *
+ * Renders on /admin/help/ai_release_guardian — gives reviewers an immediate
+ * orientation without having to read the README.
+ */
+function ai_release_guardian_help(string $route_name, RouteMatchInterface $route_match): string {
+  if ($route_name !== 'help.page.ai_release_guardian') {
+    return '';
+  }
+
+  return '<h2>AI Release Guardian</h2>
+<p>Pre-deployment AI audit of pending configuration imports. Catches risky
+RBAC grants, accidentally-enabled developer modules, and environment-specific
+drift before they reach production.</p>
+<ul>
+  <li><strong>Run an audit:</strong> <code>drush ai:audit-release</code></li>
+  <li><strong>View past audits:</strong> <em>Reports → Release Audits</em></li>
+  <li><strong>Settings:</strong> <em>Configuration → AI Release Guardian</em></li>
+</ul>
+<p>Designed to be CI/CD-pipeline friendly: exits with non-zero status when
+critical findings are present, so build systems can gate deploys.</p>';
+}
+
+/**
+ * Implements hook_theme().
+ *
+ * Registers two render-array theme hooks used by the dashboard controller:
+ * one for a single audit's report card, one for the historical list.
+ */
+function ai_release_guardian_theme(array $existing, string $type, string $theme, string $path): array {
+  return [
+    'ai_release_guardian_report' => [
+      'variables' => [
+        'audit' => NULL,
+        'meta' => [],
+      ],
+      'template' => 'ai-release-guardian-report',
+    ],
+    'ai_release_guardian_list' => [
+      'variables' => [
+        'audits' => [],
+      ],
+      'template' => 'ai-release-guardian-list',
+    ],
+  ];
+}

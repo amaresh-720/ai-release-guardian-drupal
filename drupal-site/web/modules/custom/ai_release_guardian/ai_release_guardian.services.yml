@@ -1,0 +1,29 @@
+services:
+
+  ai_release_guardian.config_diff:
+    class: Drupal\ai_release_guardian\Service\ConfigDiffService
+    arguments:
+      - '@config.storage'
+      - '@config.storage.sync'
+      - '@logger.factory'
+
+  # Inherit Drupal's default Guzzle config (timeouts, proxy, etc.)
+  # so operator overrides in settings.php still apply to our outbound call.
+  ai_release_guardian.http_client:
+    parent: http_client
+    class: GuzzleHttp\Client
+
+  ai_release_guardian.audit:
+    class: Drupal\ai_release_guardian\Service\ConfigAuditService
+    arguments:
+      - '@state'
+      - '@logger.factory'
+      - '@ai_release_guardian.http_client'
+      - '@cache.default'
+      - '@datetime.time'
+
+  ai_release_guardian.log_writer:
+    class: Drupal\ai_release_guardian\Service\AuditLogWriter
+    arguments:
+      - '@state'
+      - '@datetime.time'

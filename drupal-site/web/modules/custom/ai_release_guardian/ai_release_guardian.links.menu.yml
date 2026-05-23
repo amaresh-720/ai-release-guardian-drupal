@@ -1,0 +1,11 @@
+ai_release_guardian.settings:
+  title: 'AI Release Guardian'
+  description: 'Configure the LLM provider and audit policy.'
+  parent: system.admin_config_system
+  route_name: ai_release_guardian.settings
+
+ai_release_guardian.report_list:
+  title: 'Release Audits'
+  description: 'Historical AI audits of pending configuration imports.'
+  parent: system.admin_reports
+  route_name: ai_release_guardian.report_list

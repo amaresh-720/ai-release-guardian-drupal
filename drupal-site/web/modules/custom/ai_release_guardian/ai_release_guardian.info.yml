@@ -1,0 +1,10 @@
+name: 'AI Release Guardian'
+type: module
+description: 'Audits pending configuration changes with an LLM before deployment — catches RBAC mistakes, dev-only modules, and environment drift that manual review misses.'
+package: 'AI & DevOps'
+core_version_requirement: ^10.3 || ^11
+configure: ai_release_guardian.settings
+dependencies:
+  - drupal:config
+  - drupal:system
+  - drupal:user

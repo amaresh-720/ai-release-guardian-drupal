@@ -1,0 +1,43 @@
+ai_release_guardian.settings:
+  type: config_object
+  label: 'AI Release Guardian settings'
+  mapping:
+    provider:
+      type: string
+      label: 'AI provider'
+      constraints:
+        Choice:
+          choices: [groq, openai]
+    model:
+      type: string
+      label: 'Model identifier'
+    base_url:
+      type: string
+      label: 'Provider base URL (OpenAI-compatible)'
+    request_timeout:
+      type: integer
+      label: 'HTTP request timeout (seconds)'
+      constraints:
+        Range:
+          min: 1
+          max: 120
+    blocking_severities:
+      type: sequence
+      label: 'Severity levels that cause a BLOCK verdict'
+      sequence:
+        type: string
+        constraints:
+          Choice:
+            choices: [critical, high, medium, low, info]
+    excluded_config_patterns:
+      type: sequence
+      label: 'Config name fnmatch patterns to skip auditing'
+      sequence:
+        type: string
+    cache_ttl:
+      type: integer
+      label: 'Audit cache TTL in seconds (per config-hash)'
+      constraints:
+        Range:
+          min: 0
+          max: 86400

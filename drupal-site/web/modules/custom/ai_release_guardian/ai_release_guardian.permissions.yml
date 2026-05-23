@@ -1,0 +1,11 @@
+# Two-tier permissions: separate "operate" from "observe" so release
+# managers can view reports without holding the API key authority.
+
+administer ai release guardian:
+  title: 'Administer AI Release Guardian'
+  description: 'Configure provider, API key, severity policy. Restrict to platform admins.'
+  restrict access: true
+
+view ai release guardian reports:
+  title: 'View Release Audit reports'
+  description: 'Read-only access to the audit dashboard.'
