@@ -1,314 +1,97 @@
 # AI Release Guardian for Drupal 11
 
-A custom Drupal 11 module that audits pending **configuration imports**
-with an LLM before they reach production. Exposes a Drush command for
-CI/CD integration plus a read-only admin dashboard.
+A simple Drupal module that checks pending config changes before they are imported.
 
-The use case: in a typical Drupal deployment, someone exports config
-with `devel` accidentally enabled, or grants a broad permission to the
-wrong role, or flips a cache off. YAML diffs are noisy and reviewers
-skim. This module sits between `drush config:export` and
-`drush config:import` and gives a second-opinion in under a second,
-catching the things humans miss.
+It runs as a Drush command and warns you if the pending config looks risky.
 
 ---
 
-## Quick start
+## What it does
 
-Prerequisites: **Docker** and **Docker Compose**. Nothing else needs to
-be installed on the host.
+- compares the config files in `drupal-site/config/sync/` with the active site settings
+- sends only the pending changes to an AI service
+- flags risky changes such as dev modules left enabled or bad permissions
+- saves recent audit results for later review
+
+This is a tool for release checks, not a regular end-user feature.
+
+---
+
+## Requirements
+
+- Docker
+- Docker Compose
+- A Groq API key stored in `.env`
+
+---
+
+## Setup
 
 ```bash
 git clone <repo-url> ai-release-guardian
 cd ai-release-guardian
 cp .env.example .env
-# Open .env and paste your GROQ_API_KEY (free key from console.groq.com).
+# Add your GROQ_API_KEY to .env
 
 docker compose up -d --build
 docker compose exec drupal bash /scripts/install-drupal.sh
 ```
 
-The install script is idempotent — re-running is safe.
-
-When it finishes you'll see:
-
-```
-✓ Drupal ready at  http://localhost:8080
-✓ Admin login      admin / admin
-✓ Run audit demo:  docker compose exec drupal drush ai:audit-release
-```
-
-Open <http://localhost:8080>, log in as `admin / admin`.
+Then open `http://localhost:8080` and log in as `admin / admin`.
 
 ---
 
-## Running the audit
-
-The install script generates the standard Drupal config in
-`drupal-site/config/sync/` and then injects two deliberately bad
-changes (via `scripts/inject-bad-config.sh`) so the AI has something
-to flag:
-
-- `user.role.anonymous.yml` gets `administer site configuration` and
-  `administer users` permissions added to the anonymous role.
-- `core.extension.yml` gets the `devel` module turned on.
-
-Run the audit:
+## Run the audit
 
 ```bash
 docker compose exec drupal drush ai:audit-release
 ```
 
-Expected output (verdict and finding wording vary slightly run-to-run):
-
-```
-AI Release Guardian
--------------------
-
- Computing config diff (sync vs active)...
- Found 2 pending change(s).
- Sending sanitized diff to provider...
-
-  Verdict:   ✗ BLOCKED   |   Provider: groq   |   Latency: 579 ms   |   Cache: MISS
-
- 🟠 HIGH (1)
-   - user.role.anonymous
-     Anonymous user has admin privileges
-     ...
-     Fix: Revert the change or remove the permissions.
-
-  Audit #1 saved. View at /admin/reports/release-audit/1
-```
-
-Browse the same audit at <http://localhost:8080/admin/reports/release-audit>.
+This does:
+- find the pending config changes
+- remove sensitive values before sending them
+- ask the AI for a safety check
+- print the result in the terminal
 
 ---
 
-## Commands
+## Other useful commands
 
 ```bash
-docker compose exec drupal drush ai:audit-release            # main audit
 docker compose exec drupal drush ai:audit-release --json     # JSON output
-docker compose exec drupal drush ai:audit-release --force    # always exit 0
+docker compose exec drupal drush ai:audit-release --force    # always return success
 docker compose exec drupal drush ai:audit-release --no-cache # skip cache
-docker compose exec drupal drush ai:audit-list               # last 20 audits
-```
-
-Exit codes: `0` = PASS or WARN, `2` = BLOCK, `3` = UNVERIFIED (LLM call
-failed). CI pipelines can gate on these.
-
----
-
-## URLs
-
-- Settings — `/admin/config/system/ai-release-guardian`
-- Audit list — `/admin/reports/release-audit`
-- Audit detail — `/admin/reports/release-audit/{id}`
-
----
-
-## Project layout
-
-```
-.
-├── docker-compose.yml          # local stack (Drupal + MariaDB)
-├── docker/drupal/Dockerfile    # PHP 8.3 + Apache + extensions
-├── scripts/
-│   ├── install-drupal.sh       # idempotent installer
-│   └── inject-bad-config.sh    # injects the demo bad-config changes
-├── .env.example                # template — copy to .env
-├── README.md                   # this file
-├── NOTES.md                    # short submission note for the assignment
-└── drupal-site/
-    ├── composer.json           # Drupal 11 + contrib + drush deps
-    ├── composer.lock
-    └── web/modules/custom/ai_release_guardian/   # THE MODULE
-```
-
-Drupal core, vendor packages, contrib modules, and the exported
-`config/sync` directory are all gitignored — they're regenerated by
-the install script. This follows the standard
-`drupal/recommended-project` layout convention.
-
-The custom module lives at
-[drupal-site/web/modules/custom/ai_release_guardian/](drupal-site/web/modules/custom/ai_release_guardian/).
-That's the part written from scratch.
-
-### Module file layout
-
-```
-ai_release_guardian/
-├── ai_release_guardian.info.yml          # module manifest
-├── ai_release_guardian.module            # hook_help, hook_theme
-├── ai_release_guardian.services.yml      # DI service registrations
-├── ai_release_guardian.routing.yml       # routes
-├── ai_release_guardian.permissions.yml   # permissions
-├── ai_release_guardian.links.menu.yml    # admin menu entries
-├── ai_release_guardian.libraries.yml     # CSS bundle
-├── drush.services.yml                    # Drush command registration
-├── config/
-│   ├── install/...settings.yml           # default config
-│   └── schema/...schema.yml              # typed config validation
-├── src/
-│   ├── Audit/{Severity,Verdict,Finding,Result}.php
-│   ├── Service/{ConfigDiff,ConfigAudit,AuditLogWriter}.php
-│   ├── Drush/Commands/ReleaseGuardianCommands.php
-│   ├── Form/SettingsForm.php
-│   └── Controller/AuditReportController.php
-├── templates/...{report,list}.html.twig
-├── css/report.css
-└── tests/src/Unit/ConfigAuditServiceTest.php
+docker compose exec drupal drush ai:audit-list               # show recent audits
 ```
 
 ---
 
-## Architecture decisions
+## Where to view results
 
-These are the trade-offs that drove the design. Each one captures *why
-this and not the obvious alternative*.
-
-### ADR-001: Zero-PII payload by construction
-
-**Context.** Sending arbitrary YAML to an external LLM is a compliance
-risk. Even if config "shouldn't" contain user data, defaults sometimes
-leak (admin emails in `system.site.yml`, custom config storing arbitrary
-strings, etc.).
-
-**Decision.** A `sanitize()` pass strips three categories before any
-network call: values under known secret-named keys
-(`password`, `secret`, `api_key`, `token`, `private_key`), strings
-longer than 256 characters, and values matching an email regex.
-Replaced inline with `<REDACTED:...>` markers so the LLM still sees the
-shape.
-
-**Consequence.** Small context loss for the LLM. Compliance-safe by
-default; works for regulated tenants without per-site review.
-
-### ADR-002: Fail-safe by default
-
-**Context.** The audit runs in the deploy path. If the LLM provider
-goes down, blocking deploys is worse than the original problem.
-
-**Decision.** All Guzzle exceptions and JSON-decode errors are caught
-in the audit service and converted to an `UNVERIFIED` result with a
-distinct exit code (3). The verdict never silently degrades to PASS.
-
-**Consequence.** Operators can choose their CI policy:
-fail-on-unverified or warn-on-unverified. Outages aren't
-outages-plus-deploy-freezes.
-
-### ADR-003: API key in State, not Config
-
-**Context.** Drupal Config exports to git via `drush config:export`.
-Anything stored as Config can leak via a routine export.
-
-**Decision.** The API key lives in the State API (database only,
-environment-specific). The settings form writes there directly. Only
-non-sensitive options (model, base URL, blocking severities, TTL) live
-in Config.
-
-**Consequence.** A teammate doing `drush cex && git commit -am 'export'`
-cannot accidentally publish credentials.
-
-### ADR-004: Cache keyed by content hash
-
-**Context.** Same diff audited repeatedly (CI re-runs, parallel jobs)
-shouldn't burn API quota.
-
-**Decision.** SHA-256 of the JSON-encoded diff is the cache key. Cache
-TTL is operator-configurable; 0 disables. Cache uses Drupal's cache
-backend and is invalidated by the
-`config:ai_release_guardian.settings` tag (so policy changes
-invalidate).
-
-**Consequence.** Repeated runs are free. New material is fresh.
-
-### ADR-005: Drush-first, dashboard-second
-
-**Context.** Release audits happen in CI pipelines, not browser
-sessions. A web form as the primary interface would be wrong.
-
-**Decision.** The Drush command is the canonical entry point. The
-dashboard is reporting-only; nothing on it can trigger a new audit.
-
-**Consequence.** Easy integration into GitHub Actions or GitLab CI:
-
-```yaml
-- name: Audit release config
-  run: docker compose exec -T drupal drush ai:audit-release
-  # exit 0 = pass/warn, 2 = block, 3 = unverified
-```
+- Settings: `/admin/config/system/ai-release-guardian`
+- Audit list: `/admin/reports/release-audit`
+- Audit detail: `/admin/reports/release-audit/{id}`
 
 ---
 
-## Testing
+## Main files to know
 
-```bash
-docker compose exec drupal vendor/bin/phpunit \
-  -c web/core/phpunit.xml.dist \
-  web/modules/custom/ai_release_guardian/tests
-```
-
-Four unit tests covering the audit service: empty-diff PASS path,
-LLM-returns-critical BLOCK path, provider-failure UNVERIFIED path, and
-the PII sanitizer.
+- `src/Drush/Commands/ReleaseGuardianCommands.php` — command entry point
+- `src/Service/ConfigDiffService.php` — finds pending config changes
+- `src/Service/ConfigAuditService.php` — sends the audit to AI
+- `src/Service/AuditLogWriter.php` — saves audit history
+- `src/Form/SettingsForm.php` — admin configuration form
 
 ---
 
-## Configuration
+## Important notes
 
-Edit settings in the admin form at
-`/admin/config/system/ai-release-guardian` or via Drush:
-
-```bash
-docker compose exec drupal drush config:set ai_release_guardian.settings cache_ttl 3600
-docker compose exec drupal drush state:set ai_release_guardian.groq_api_key "gsk_..."
-```
-
-Settings (`ai_release_guardian.settings`):
-- `provider` — `groq` or any OpenAI-compatible endpoint
-- `model` — e.g. `llama-3.1-8b-instant`
-- `base_url` — provider URL
-- `request_timeout` — seconds
-- `blocking_severities` — list, e.g. `[critical, high]`
-- `excluded_config_patterns` — fnmatch patterns to skip
-- `cache_ttl` — seconds (0 disables)
-
-State keys (sensitive):
-- `ai_release_guardian.groq_api_key`
-- `ai_release_guardian.groq_model`
-- `ai_release_guardian.groq_base_url`
-
----
-
-## Stack
-
-- Drupal 11 (PHP 8.3, Apache 2.4)
-- MariaDB 10.11
-- Drush 13
-- Composer 2
-- Groq API (OpenAI-compatible chat completions)
-
-Contrib modules used:
-- `drupal/admin_toolbar` — better admin UX
-- `drupal/devel` — included only as the deliberately-bad example module
-
----
-
-## What's intentionally out of scope
-
-- A custom Drupal entity for audit log rows. State API ring buffer fits
-  the read patterns and keeps the module small. Promote to entity if
-  fielded query becomes a requirement.
-- A multi-provider plugin manager. A single `ConfigAuditService`
-  talking to one OpenAI-compatible endpoint covers Groq, OpenAI, and
-  most others via base-URL swap. A full plugin API would be premature.
-- Event-subscriber-driven auto-audit on `drush config:import`. The
-  Drush command is the explicit entry; tying it to import felt magical
-  and hard to opt out of.
+- The API key is stored in Drupal State, not in exported config.
+- The command is the main feature. The dashboard is just for viewing results.
+- If the AI provider fails, the audit returns `UNVERIFIED` instead of pretending everything is fine.
 
 ---
 
 ## License
 
-GPL-2.0-or-later, same as Drupal.
+GPL-2.0-or-later
