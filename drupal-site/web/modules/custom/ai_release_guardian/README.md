@@ -52,3 +52,28 @@ Drupal core: `config`, `system`, `user`. Drush 13+.
 vendor/bin/phpunit -c web/core/phpunit.xml.dist \
   web/modules/custom/ai_release_guardian/tests
 ```
+
+## Why this module is built this way
+
+- Zero-PII payload by construction
+  - The module strips known secret fields, long strings, and emails before
+    sending config changes to the AI provider.
+  - This keeps the audit safer for regulated environments.
+
+- Fail-safe by default
+  - If the AI provider is unavailable or returns bad JSON, the audit becomes
+    `UNVERIFIED` instead of pretending the config is safe.
+  - This avoids hidden pass results when the AI service fails.
+
+- API key stored in State, not Config
+  - The sensitive provider key lives in Drupal State, not in exported config.
+  - That prevents accidental credential leaks through `drush config:export`.
+
+- Cache keyed by content hash
+  - The same pending diff uses a SHA-256 cache key so repeated runs do not
+    re-call the AI provider unnecessarily.
+  - Cache TTL is configurable, and policy changes invalidate stale results.
+
+- Drush-first, dashboard-second
+  - The main workflow is the Drush command used in CI/CD.
+  - The browser pages only show past audits; they do not trigger new audits.
